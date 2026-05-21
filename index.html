@@ -333,7 +333,6 @@
             width: 0%;
         }
         .file-info { margin-left: 10px; font-size: 11px; color: #666; }
-        /* Input file langsung terlihat tanpa disembunyikan */
         input[type="file"] { 
             display: inline-block; 
             margin: 5px 0; 
@@ -350,8 +349,8 @@
     <div class="login-box">
         <h2>⚓ PUSPENERBAL</h2>
         <p class="sub">Sistem Informasi Personel</p>
-        <input type="text" id="username" placeholder="Username" autocomplete="off">
-        <input type="password" id="password" placeholder="Password" autocomplete="off">
+        <input type="text" id="username" placeholder="NRP (untuk user) / Username Admin" autocomplete="off">
+        <input type="password" id="password" placeholder="Password (user: NRP sama)" autocomplete="off">
         <button id="loginBtn">MASUK</button>
         <div id="loginErrorMsg" class="login-error"></div>
     </div>
@@ -431,7 +430,7 @@
 
 <script>
 // =============== KONFIGURASI ===============
-// *** WAJIB GANTI DENGAN URL APPS SCRIPT ANDA YANG SUDAH BERHASIL DIUJI ***
+// *** GANTI DENGAN URL APPS SCRIPT ANDA YANG SUDAH BERHASIL ***
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwEiDRrJXrZwGbUscOChJy2hmDagzlG3cILu_o8NPm3y_8UbCxeGMhj3NUcEG9MyCRe7A/exec'; 
 
 // =============== Helper functions ===============
@@ -558,7 +557,7 @@ function renderTabel() {
     const start = (halamanSaatIni-1)*barisPerHalaman;
     const dataHalaman = dataFilter.slice(start, start+barisPerHalaman);
     if(!dataHalaman.length) { 
-        tbody.innerHTML='<td><td colspan="7" style="text-align:center; padding:30px;">📭 Tidak ada data</td></tr>';
+        tbody.innerHTML='<tr><td colspan="7" style="text-align:center; padding:30px;">📭 Tidak ada data</td></tr>';
         document.getElementById('pesanKosong').style.display='none';
         document.getElementById('paginationSection').style.display='none';
         return; 
@@ -653,7 +652,6 @@ async function fetchDataFromGoogleSheet() {
     }
 }
 
-// FUNGSI SYNC DENGAN CHUNKING (200 BARIS PER REQUEST) - MEMPERBAIKI FAILED TO FETCH
 async function syncDataToGoogleSheet() {
     if (currentUserRole !== 'admin') {
         tampilkanPesan('warning', 'Hanya admin yang dapat menyimpan perubahan ke database.');
@@ -664,7 +662,6 @@ async function syncDataToGoogleSheet() {
         return false;
     }
     
-    // Siapkan data tanpa mengubah struktur
     const dataToSync = dataMaster.map(row => {
         let newRow = {};
         for (let k of semuaKolom) {
@@ -674,13 +671,12 @@ async function syncDataToGoogleSheet() {
     });
     
     const total = dataToSync.length;
-    const CHUNK_SIZE = 200; // 200 baris per chunk (aman untuk payload)
+    const CHUNK_SIZE = 200;
     let successCount = 0;
     let failedChunks = 0;
     
     tampilkanPesan('info', `Menyinkronkan ${total} data (${Math.ceil(total/CHUNK_SIZE)} chunk @ ${CHUNK_SIZE} baris)...`);
     
-    // Hapus semua data lama terlebih dahulu
     try {
         const deleteResponse = await fetch(APPS_SCRIPT_URL, {
             method: 'POST',
@@ -694,7 +690,6 @@ async function syncDataToGoogleSheet() {
         tampilkanPesan('warning', 'Gagal menghapus data lama, lanjutkan...');
     }
     
-    // Kirim data dalam chunk
     for (let i = 0; i < total; i += CHUNK_SIZE) {
         const chunk = dataToSync.slice(i, i + CHUNK_SIZE);
         const chunkNumber = Math.floor(i / CHUNK_SIZE) + 1;
@@ -731,7 +726,6 @@ async function syncDataToGoogleSheet() {
                 }
             }
         }
-        // Jeda antar chunk agar tidak overload
         await new Promise(r => setTimeout(r, 500));
     }
     
@@ -907,13 +901,14 @@ function downloadAllSearchResultPDF() {
 
 function refreshAllUI() { populateFilter(); updateStatistik(); cariData(); }
 
-// ==================== LOGIN ====================
+// ==================== LOGIN (DIMODIFIKASI) ====================
 const loginBtn = document.getElementById('loginBtn');
 if (loginBtn) {
     loginBtn.addEventListener('click', async () => {
         const username = document.getElementById('username').value.trim();
         const password = document.getElementById('password').value.trim();
         
+        // Login ADMIN (tetap)
         if (username === 'Dalpers' && password === '20496P') {
             currentUserRole = 'admin';
             document.getElementById('loginPage').style.display = 'none';
@@ -925,12 +920,10 @@ if (loginBtn) {
             return;
         }
         
+        // Login USER biasa: NRP dan password = NRP (dari data Google Sheet)
         await fetchDataFromGoogleSheet();
-        const foundUser = dataMaster.find(p => 
-            safeString(p.NRP).toLowerCase() === username.toLowerCase() && 
-            safeString(p.PASSWORD) === password
-        );
-        if (foundUser) {
+        const foundUser = dataMaster.find(p => safeString(p.NRP).toLowerCase() === username.toLowerCase());
+        if (foundUser && password === safeString(foundUser.NRP)) {
             currentUserRole = 'user';
             document.getElementById('loginPage').style.display = 'none';
             document.getElementById('appPage').style.display = 'block';
@@ -938,7 +931,7 @@ if (loginBtn) {
             document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
             attachSearchEvents();
         } else {
-            document.getElementById('loginErrorMsg').innerText = 'Username atau password salah!'; 
+            document.getElementById('loginErrorMsg').innerText = 'NRP atau Password salah! (Password = NRP)'; 
             document.getElementById('loginErrorMsg').style.display = 'block';
             setTimeout(() => document.getElementById('loginErrorMsg').style.display = 'none', 2000);
         }
@@ -1074,7 +1067,7 @@ if (resetAllBtn) {
 }
 
 attachSearchEvents();
-console.log('Aplikasi siap. Silakan login.');
+console.log('Aplikasi siap. Login dengan NRP dan password NRP (atau admin Dalpers/20496P).');
 </script>
 </body>
 </html>
