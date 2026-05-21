@@ -431,7 +431,7 @@
 
 <script>
 // =============== KONFIGURASI ===============
-// *** GANTI DENGAN URL APPS SCRIPT ANDA YANG SUDAH BERHASIL DIUJI ***
+// *** WAJIB GANTI DENGAN URL APPS SCRIPT ANDA YANG SUDAH BERHASIL DIUJI ***
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwEiDRrJXrZwGbUscOChJy2hmDagzlG3cILu_o8NPm3y_8UbCxeGMhj3NUcEG9MyCRe7A/exec'; 
 
 // =============== Helper functions ===============
@@ -558,7 +558,7 @@ function renderTabel() {
     const start = (halamanSaatIni-1)*barisPerHalaman;
     const dataHalaman = dataFilter.slice(start, start+barisPerHalaman);
     if(!dataHalaman.length) { 
-        tbody.innerHTML='<tr><td colspan="7" style="text-align:center; padding:30px;">📭 Tidak ada data</td></tr>';
+        tbody.innerHTML='<td><td colspan="7" style="text-align:center; padding:30px;">📭 Tidak ada data</td></tr>';
         document.getElementById('pesanKosong').style.display='none';
         document.getElementById('paginationSection').style.display='none';
         return; 
@@ -653,6 +653,7 @@ async function fetchDataFromGoogleSheet() {
     }
 }
 
+// FUNGSI SYNC DENGAN CHUNKING (200 BARIS PER REQUEST) - MEMPERBAIKI FAILED TO FETCH
 async function syncDataToGoogleSheet() {
     if (currentUserRole !== 'admin') {
         tampilkanPesan('warning', 'Hanya admin yang dapat menyimpan perubahan ke database.');
@@ -662,6 +663,8 @@ async function syncDataToGoogleSheet() {
         tampilkanPesan('info', 'Tidak ada data untuk disinkronkan.');
         return false;
     }
+    
+    // Siapkan data tanpa mengubah struktur
     const dataToSync = dataMaster.map(row => {
         let newRow = {};
         for (let k of semuaKolom) {
@@ -669,24 +672,74 @@ async function syncDataToGoogleSheet() {
         }
         return newRow;
     });
-    tampilkanPesan('info', `Menyinkronkan ${dataToSync.length} data ke Google Spreadsheet...`);
+    
+    const total = dataToSync.length;
+    const CHUNK_SIZE = 200; // 200 baris per chunk (aman untuk payload)
+    let successCount = 0;
+    let failedChunks = 0;
+    
+    tampilkanPesan('info', `Menyinkronkan ${total} data (${Math.ceil(total/CHUNK_SIZE)} chunk @ ${CHUNK_SIZE} baris)...`);
+    
+    // Hapus semua data lama terlebih dahulu
     try {
-        const response = await fetch(APPS_SCRIPT_URL, {
+        const deleteResponse = await fetch(APPS_SCRIPT_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'sync', data: dataToSync })
+            body: JSON.stringify({ action: 'deleteAll' })
         });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const result = await response.json();
-        if (result.status === 'success') {
-            tampilkanPesan('success', `Berhasil sinkron ${dataToSync.length} data ke spreadsheet!`);
-            return true;
-        } else {
-            throw new Error(result.message || 'Gagal sinkron');
+        if (!deleteResponse.ok) throw new Error('Gagal hapus data lama');
+        console.log('Data lama berhasil dihapus');
+    } catch(e) {
+        console.warn('Penghapusan data lama gagal:', e);
+        tampilkanPesan('warning', 'Gagal menghapus data lama, lanjutkan...');
+    }
+    
+    // Kirim data dalam chunk
+    for (let i = 0; i < total; i += CHUNK_SIZE) {
+        const chunk = dataToSync.slice(i, i + CHUNK_SIZE);
+        const chunkNumber = Math.floor(i / CHUNK_SIZE) + 1;
+        const totalChunks = Math.ceil(total / CHUNK_SIZE);
+        
+        let success = false;
+        let retries = 0;
+        while (!success && retries < 2) {
+            try {
+                console.log(`Mengirim chunk ${chunkNumber}/${totalChunks} (${chunk.length} baris)...`);
+                const response = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'sync', data: chunk })
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const result = await response.json();
+                if (result.status === 'success') {
+                    success = true;
+                    successCount += chunk.length;
+                    tampilkanPesan('info', `Sinkron ${successCount}/${total} baris...`);
+                } else {
+                    throw new Error(result.message || 'Gagal simpan chunk');
+                }
+            } catch (err) {
+                retries++;
+                console.error(`Chunk ${chunkNumber} gagal (percobaan ${retries}):`, err);
+                if (retries < 2) {
+                    tampilkanPesan('warning', `Chunk ${chunkNumber} gagal, mencoba ulang...`);
+                    await new Promise(r => setTimeout(r, 2000));
+                } else {
+                    failedChunks++;
+                    tampilkanPesan('warning', `Chunk ${chunkNumber} gagal dikirim. Data tidak tersimpan semua.`);
+                }
+            }
         }
-    } catch (error) {
-        console.error('Error sync ke spreadsheet:', error);
-        tampilkanPesan('warning', `Gagal sinkron: ${error.message}. Data tetap tersimpan di lokal. Periksa URL Apps Script dan pastikan akses "Anyone".`);
+        // Jeda antar chunk agar tidak overload
+        await new Promise(r => setTimeout(r, 500));
+    }
+    
+    if (successCount === total) {
+        tampilkanPesan('success', `✅ Berhasil sinkron semua ${total} data ke spreadsheet!`);
+        return true;
+    } else {
+        tampilkanPesan('warning', `⚠️ Hanya ${successCount} dari ${total} data tersimpan. Coba lagi nanti.`);
         return false;
     }
 }
@@ -730,7 +783,6 @@ async function updateRowInGoogleSheet(nrp, updatedData) {
 }
 
 // ==================== IMPORT/EXPORT EXCEL ====================
-// Event listener untuk input file (langsung tanpa tombol pilih file tambahan)
 const excelFileInput = document.getElementById('excelFileInput');
 if (excelFileInput) {
     excelFileInput.addEventListener('change', (e) => { 
@@ -802,7 +854,7 @@ function importExcelToMaster(dataExcel, headers) {
     dataFilter = [...dataMaster];
     refreshAllUI();
     tampilkanPesan('success', `Import selesai! ${baru} baru, ${update} update. Total kolom: ${semuaKolom.length}`);
-    if (confirm('Simpan ke database online (Google Spreadsheet)?')) {
+    if (confirm('Simpan ke database online (Google Spreadsheet)? Proses akan dipecah per 200 baris.')) {
         syncDataToGoogleSheet();
     }
 }
@@ -862,20 +914,17 @@ if (loginBtn) {
         const username = document.getElementById('username').value.trim();
         const password = document.getElementById('password').value.trim();
         
-        // Admin login
         if (username === 'Dalpers' && password === '20496P') {
             currentUserRole = 'admin';
             document.getElementById('loginPage').style.display = 'none';
             document.getElementById('appPage').style.display = 'block';
             document.getElementById('userRoleBadge').innerHTML = '👑 ADMINISTRATOR (DALPERS)';
-            const adminOnlyElements = document.querySelectorAll('.admin-only');
-            adminOnlyElements.forEach(el => el.style.display = 'block');
+            document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
             attachSearchEvents();
             fetchDataFromGoogleSheet().catch(e => console.log('Load data belakangan', e));
             return;
         }
         
-        // User login
         await fetchDataFromGoogleSheet();
         const foundUser = dataMaster.find(p => 
             safeString(p.NRP).toLowerCase() === username.toLowerCase() && 
@@ -886,8 +935,7 @@ if (loginBtn) {
             document.getElementById('loginPage').style.display = 'none';
             document.getElementById('appPage').style.display = 'block';
             document.getElementById('userRoleBadge').innerHTML = `👤 USER : ${safeString(foundUser.NAMA).substring(0,20)}`;
-            const adminOnlyElements = document.querySelectorAll('.admin-only');
-            adminOnlyElements.forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
             attachSearchEvents();
         } else {
             document.getElementById('loginErrorMsg').innerText = 'Username atau password salah!'; 
@@ -926,7 +974,7 @@ function attachSearchEvents() {
     if (filterSatker) filterSatker.onchange = () => cariData();
 }
 
-// Event listener untuk tombol di tabel (detail, edit, hapus)
+// Event listener tabel
 const tabelBody = document.getElementById('tabelBody');
 if (tabelBody) {
     tabelBody.addEventListener('click', async (e) => {
@@ -941,10 +989,8 @@ if (tabelBody) {
                 let val = person[k] || '';
                 html += `<div class="form-row"><label>${formatLabel(k)}</label><input type="text" name="${k}" value="${escapeHtml(safeString(val))}"></div>`;
             }
-            const editForm = document.getElementById('editForm');
-            if (editForm) editForm.innerHTML = html;
-            const editModal = document.getElementById('editModal');
-            if (editModal) editModal.classList.add('active');
+            document.getElementById('editForm').innerHTML = html;
+            document.getElementById('editModal').classList.add('active');
         }
         if (btn.classList.contains('delete-btn') && person && currentUserRole==='admin') {
             if(confirm(`Hapus ${safeString(person.NAMA)}?`)) {
@@ -981,24 +1027,17 @@ if (saveEditBtn) {
             refreshAllUI();
             tampilkanPesan('success','Data tersimpan');
         } else tampilkanPesan('warning','Gagal simpan');
-        const editModal = document.getElementById('editModal');
-        if (editModal) editModal.classList.remove('active');
+        document.getElementById('editModal').classList.remove('active');
         editingPerson = null;
     });
 }
 
-const closeEditModalBtn = document.getElementById('closeEditModalBtn');
-if (closeEditModalBtn) closeEditModalBtn.addEventListener('click',()=>document.getElementById('editModal').classList.remove('active'));
-const cancelEditBtn = document.getElementById('cancelEditBtn');
-if (cancelEditBtn) cancelEditBtn.addEventListener('click',()=>document.getElementById('editModal').classList.remove('active'));
-const pdfDetailBtn = document.getElementById('pdfDetailBtn');
-if (pdfDetailBtn) pdfDetailBtn.addEventListener('click',()=>{ if(currentDetailPerson) downloadPersonelPDF(currentDetailPerson); });
-const tutupModalBtn = document.getElementById('tutupModalBtn');
-if (tutupModalBtn) tutupModalBtn.addEventListener('click',()=>document.getElementById('detailModal').classList.remove('active'));
-const closeDetailBtn = document.getElementById('closeDetailBtn');
-if (closeDetailBtn) closeDetailBtn.addEventListener('click',()=>document.getElementById('detailModal').classList.remove('active'));
-const pdfDownloadBtn = document.getElementById('pdfDownloadBtn');
-if (pdfDownloadBtn) pdfDownloadBtn.addEventListener('click', downloadAllSearchResultPDF);
+document.getElementById('closeEditModalBtn')?.addEventListener('click',()=>document.getElementById('editModal').classList.remove('active'));
+document.getElementById('cancelEditBtn')?.addEventListener('click',()=>document.getElementById('editModal').classList.remove('active'));
+document.getElementById('pdfDetailBtn')?.addEventListener('click',()=>{ if(currentDetailPerson) downloadPersonelPDF(currentDetailPerson); });
+document.getElementById('tutupModalBtn')?.addEventListener('click',()=>document.getElementById('detailModal').classList.remove('active'));
+document.getElementById('closeDetailBtn')?.addEventListener('click',()=>document.getElementById('detailModal').classList.remove('active'));
+document.getElementById('pdfDownloadBtn')?.addEventListener('click', downloadAllSearchResultPDF);
 
 const importExcelBtn = document.getElementById('importExcelBtn');
 if (importExcelBtn) {
