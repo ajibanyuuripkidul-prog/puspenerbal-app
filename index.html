@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>PUSPENERBAL - Manajemen Personel TNI AL</title>
-    <!-- SheetJS: Untuk export ke Excel -->
+    <!-- SheetJS: Untuk export/import Excel -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <!-- jsPDF: Untuk generate PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -376,7 +376,6 @@
             <div class="stat-card"><div class="stat-number" id="statPNS">0</div><div class="stat-label">PNS</div></div>
         </div>
 
-        <!-- Panel Admin: Management Data -->
         <div id="adminPanel" class="panel admin-only">
             <div class="panel-title">📂 MANAJEMEN DATA (ADMIN ONLY)</div>
             <div class="panel-body">
@@ -390,7 +389,6 @@
             </div>
         </div>
 
-        <!-- Panel Pencarian -->
         <div class="panel">
             <div class="panel-title">🔍 PENCARIAN DATA PERSONEL</div>
             <div class="panel-body">
@@ -405,7 +403,6 @@
             </div>
         </div>
 
-        <!-- Tabel Data Personel -->
         <div class="panel">
             <div class="panel-title" style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                 <span>📋 DAFTAR PERSONEL <span id="totalHasil"></span> <span id="columnCountBadge" class="badge"></span></span>
@@ -420,7 +417,6 @@
     </div>
 </div>
 
-<!-- Modal Detail -->
 <div id="detailModal" class="modal">
     <div class="modal-content">
         <div class="modal-header"><div><h3 id="modalNamaPersonel"></h3><small id="modalPangkatPersonel" style="color:#c8a84b;"></small><small id="modalNRPPersonel" style="color:#aaa; display:block; font-size:11px;"></small></div><div><button id="pdfDetailBtn" class="btn-pdf-detail">📄 UNDUH PDF</button><button id="tutupModalBtn" class="close-modal">✕</button></div></div>
@@ -429,7 +425,6 @@
     </div>
 </div>
 
-<!-- Modal Edit -->
 <div id="editModal" class="modal">
     <div class="modal-content">
         <div class="modal-header"><h3>✏️ Edit Data Personel</h3><button id="closeEditModalBtn" class="close-modal">✕</button></div>
@@ -439,10 +434,10 @@
 </div>
 
 <script>
-// =============== KONFIGURASI API ===============
+// =============== KONFIGURASI ===============
 const SHEETDB_API_URL = 'https://sheetdb.io/api/v1/ipcljdxg63hhe';
 
-// =============== Helper Functions ===============
+// Helper functions
 function normalizeKey(key) {
     let k = String(key).toUpperCase().trim();
     k = k.replace(/\s+/g, ' ').replace(/[_]+/g, ' ');
@@ -486,7 +481,7 @@ function safeString(value) {
     return String(value);
 }
 
-// =============== Global State ===============
+// Global state
 let dataMaster = [];
 let dataFilter = [];
 let semuaKolom = [];
@@ -497,7 +492,6 @@ let dataExcelPending = null;
 let currentDetailPerson = null;
 let editingPerson = null;
 
-// =============== Helper: Update Tabel & UI ===============
 function getKategori(pangkat) {
     let p = safeString(pangkat);
     if(!p) return "Lainnya";
@@ -539,70 +533,41 @@ function populateFilter() {
 }
 
 function cariData() {
-    const keywordInput = document.getElementById('searchKeyword');
-    const pangkatSelect = document.getElementById('filterPangkatSelect');
-    const satkerSelect = document.getElementById('filterSatkerSelect');
-    
-    const kw = keywordInput ? safeString(keywordInput.value).trim().toLowerCase() : '';
-    const pkt = pangkatSelect ? pangkatSelect.value : '';
-    const sker = satkerSelect ? satkerSelect.value : '';
-    
+    const kw = safeString(document.getElementById('searchKeyword').value).trim().toLowerCase();
+    const pkt = document.getElementById('filterPangkatSelect').value;
+    const sker = document.getElementById('filterSatkerSelect').value;
     if(dataMaster.length === 0) {
         dataFilter = [];
-        const totalHasil = document.getElementById('totalHasil');
-        if(totalHasil) totalHasil.innerHTML = '(0)';
-        const testInfo = document.getElementById('searchTestInfo');
-        if(testInfo) testInfo.innerHTML = '⚠️ Belum ada data. Silakan import file Excel terlebih dahulu.';
+        document.getElementById('totalHasil').innerHTML = '(0)';
+        document.getElementById('searchTestInfo').innerHTML = '⚠️ Belum ada data. Silakan import file Excel.';
         renderTabel();
         return;
     }
-    
     dataFilter = dataMaster.filter(p => {
-        const nrpValue = safeString(p.NRP).toLowerCase();
-        const namaValue = safeString(p.NAMA).toLowerCase();
-        const pangkatValue = safeString(p.PANGKAT);
-        const satkerValue = safeString(p.SATKER);
-        
-        if(kw && !(nrpValue.includes(kw) || namaValue.includes(kw))) return false;
-        if(pkt && pangkatValue !== pkt) return false;
-        if(sker && satkerValue !== sker) return false;
+        if(kw && !(safeString(p.NRP).toLowerCase().includes(kw) || safeString(p.NAMA).toLowerCase().includes(kw))) return false;
+        if(pkt && safeString(p.PANGKAT) !== pkt) return false;
+        if(sker && safeString(p.SATKER) !== sker) return false;
         return true;
     });
-    
     halamanSaatIni = 1;
     renderTabel();
-    
-    const totalHasil = document.getElementById('totalHasil');
-    if(totalHasil) totalHasil.innerHTML = `(${dataFilter.length})`;
-    
-    const testInfo = document.getElementById('searchTestInfo');
-    if(testInfo) {
-        if(kw) testInfo.innerHTML = `🔍 Mencari "${kw}" - Ditemukan ${dataFilter.length} data`;
-        else testInfo.innerHTML = `📊 Total data: ${dataMaster.length} personel, ${semuaKolom.length} kolom`;
-    }
+    document.getElementById('totalHasil').innerHTML = `(${dataFilter.length})`;
+    document.getElementById('searchTestInfo').innerHTML = kw ? `🔍 Mencari "${kw}" - Ditemukan ${dataFilter.length} data` : `📊 Total data: ${dataMaster.length} personel, ${semuaKolom.length} kolom`;
 }
 
 function renderTabel() {
     const tbody = document.getElementById('tabelBody');
     if(!tbody) return;
-    
     const start = (halamanSaatIni-1)*barisPerHalaman;
     const dataHalaman = dataFilter.slice(start, start+barisPerHalaman);
-    
     if(!dataHalaman.length) { 
         tbody.innerHTML='<tr><td colspan="7" style="text-align:center; padding:30px;">📭 Tidak ada data</td></tr>';
-        const pesanKosong = document.getElementById('pesanKosong');
-        if(pesanKosong) pesanKosong.style.display='none'; 
-        const pagSection = document.getElementById('paginationSection');
-        if(pagSection) pagSection.style.display='none'; 
+        document.getElementById('pesanKosong').style.display='none';
+        document.getElementById('paginationSection').style.display='none';
         return; 
     }
-    
-    const pesanKosong = document.getElementById('pesanKosong');
-    if(pesanKosong) pesanKosong.style.display='none'; 
-    const pagSection = document.getElementById('paginationSection');
-    if(pagSection) pagSection.style.display='flex';
-    
+    document.getElementById('pesanKosong').style.display='none';
+    document.getElementById('paginationSection').style.display='flex';
     let html = '';
     for(let i=0;i<dataHalaman.length;i++) {
         const p = dataHalaman[i];
@@ -620,16 +585,11 @@ function renderTabel() {
         </tr>`;
     }
     tbody.innerHTML = html;
-    
     const totalHalaman = Math.ceil(dataFilter.length/barisPerHalaman) || 1;
-    const infoHalaman = document.getElementById('infoHalaman');
-    if(infoHalaman) infoHalaman.innerHTML = `Halaman ${halamanSaatIni} dari ${totalHalaman}`;
-    
-    const tombolDiv = document.getElementById('tombolHalaman'); 
-    if(!tombolDiv) return;
+    document.getElementById('infoHalaman').innerHTML = `Halaman ${halamanSaatIni} dari ${totalHalaman}`;
+    const tombolDiv = document.getElementById('tombolHalaman');
     tombolDiv.innerHTML = '';
     if(totalHalaman<=1) return;
-    
     const buat = (t,cb,d=false)=>{ let b=document.createElement('button'); b.innerText=t; b.className='page-btn'; if(d) b.disabled=true; b.onclick=cb; tombolDiv.appendChild(b); };
     buat('«',()=>{if(halamanSaatIni>1){halamanSaatIni--;renderTabel();}},halamanSaatIni===1);
     buat('‹',()=>{if(halamanSaatIni>1){halamanSaatIni--;renderTabel();}},halamanSaatIni===1);
@@ -647,7 +607,6 @@ function tampilkanDetail(person) {
     let html = '<div class="info-grid">';
     for(let k of semuaKolom) {
         let val = person[k] !== undefined && person[k] !== null ? safeString(person[k]) : '-';
-        if(val === '') val = '-';
         html += `<div class="info-item"><div class="info-label">${formatLabel(k)}</div><div class="info-value">${escapeHtml(val)}</div></div>`;
     }
     html += '</div>';
@@ -663,147 +622,114 @@ function tampilkanPesan(type, msg) {
     setTimeout(()=>d.remove(),3000); 
 }
 
-// =============== Fungsi Interaksi dengan SheetDB ===============
-// Ambil semua data dari Google Sheets via SheetDB
+// ==================== INTEGRASI SHEETDB ====================
 async function fetchDataFromSheetDB() {
     try {
         const response = await fetch(SHEETDB_API_URL);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        console.log('Data dari SheetDB:', data);
-        
-        if (data && data.length > 0) {
-            // Ambil header dari kunci objek pertama
-            const headers = Object.keys(data[0]);
-            semuaKolom = headers.map(h => normalizeKey(h));
-            
-            // Konversi data, format tanggal jika diperlukan
+        if (data && data.length) {
+            semuaKolom = Object.keys(data[0]).map(h => normalizeKey(h));
             dataMaster = data.map(row => {
                 let obj = {};
                 for (let [k, v] of Object.entries(row)) {
                     const normKey = normalizeKey(k);
                     let value = v;
-                    if (normKey === 'TGL_LAHIR' || normKey === 'TMT_MIL' || normKey === 'TMT_PKT') {
-                        value = formatTanggal(v);
-                    }
+                    if (normKey === 'TGL_LAHIR' || normKey === 'TMT_MIL' || normKey === 'TMT_PKT') value = formatTanggal(v);
                     obj[normKey] = value;
                 }
                 return obj;
             });
-        } else {
-            dataMaster = [];
-            semuaKolom = [];
-        }
+        } else { dataMaster = []; semuaKolom = []; }
         dataFilter = [...dataMaster];
         refreshAllUI();
         return true;
-    } catch (error) {
-        console.error('Gagal mengambil data dari SheetDB:', error);
-        tampilkanPesan('info', 'Tidak dapat terhubung ke database online. Pastikan SheetDB API aktif.');
-        return false;
-    }
+    } catch(e) { console.error(e); tampilkanPesan('info','Gagal konek SheetDB. Data dari cache.'); return false; }
 }
 
-// Update data ke SheetDB (untuk operasi write)
 async function syncDataToSheetDB() {
-    if (currentUserRole !== 'admin') {
-        tampilkanPesan('warning', 'Hanya admin yang dapat menyimpan perubahan ke database.');
-        return false;
-    }
-    
-    // Konversi dataMaster ke format yang sesuai untuk SheetDB (dengan header asli)
+    if (currentUserRole !== 'admin') { tampilkanPesan('warning','Hanya admin dapat sinkron.'); return false; }
     const dataToSync = dataMaster.map(row => {
         let newRow = {};
-        for (let k of semuaKolom) {
-            newRow[formatLabel(k)] = row[k] !== undefined ? row[k] : '';
-        }
+        for (let k of semuaKolom) newRow[formatLabel(k)] = row[k] !== undefined ? row[k] : '';
         return newRow;
     });
-    
     try {
-        // Hapus semua data yang ada (kecuali header)
         await fetch(`${SHEETDB_API_URL}/all`, { method: 'DELETE' });
-        
-        // Kirim data baru
-        const response = await fetch(SHEETDB_API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dataToSync)
-        });
-        
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const result = await response.json();
-        console.log('Sinkronisasi berhasil:', result);
-        tampilkanPesan('success', 'Database berhasil disinkronkan!');
+        const response = await fetch(SHEETDB_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dataToSync) });
+        if (!response.ok) throw new Error();
+        tampilkanPesan('success','Database online berhasil diperbarui!');
         return true;
-    } catch (error) {
-        console.error('Gagal sinkronisasi ke SheetDB:', error);
-        tampilkanPesan('warning', 'Gagal menyimpan perubahan ke database online. Periksa koneksi.');
-        return false;
-    }
+    } catch(e) { tampilkanPesan('warning','Gagal sinkron ke SheetDB.'); return false; }
 }
 
-// Hapus baris berdasarkan NRP
 async function deleteRowFromSheetDB(nrp) {
     if (currentUserRole !== 'admin') return false;
     try {
-        const response = await fetch(`${SHEETDB_API_URL}/NRP/${encodeURIComponent(nrp)}`, { method: 'DELETE' });
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const result = await response.json();
-        console.log('Hapus baris:', result);
-        return true;
-    } catch (error) {
-        console.error('Gagal menghapus baris:', error);
-        return false;
-    }
+        const res = await fetch(`${SHEETDB_API_URL}/NRP/${encodeURIComponent(nrp)}`, { method: 'DELETE' });
+        return res.ok;
+    } catch(e) { return false; }
 }
 
-// Update baris berdasarkan NRP
 async function updateRowInSheetDB(nrp, updatedData) {
     if (currentUserRole !== 'admin') return false;
     try {
-        const response = await fetch(`${SHEETDB_API_URL}/NRP/${encodeURIComponent(nrp)}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updatedData)
-        });
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const result = await response.json();
-        console.log('Update baris:', result);
-        return true;
-    } catch (error) {
-        console.error('Gagal update baris:', error);
-        return false;
-    }
+        const res = await fetch(`${SHEETDB_API_URL}/NRP/${encodeURIComponent(nrp)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedData) });
+        return res.ok;
+    } catch(e) { return false; }
 }
 
-// =============== Fungsi untuk Admin (Import/Export) ===============
-// Import data dari file Excel (tidak langsung sync ke SheetDB, hanya update dataMaster)
-function importExcelToMaster(dataExcel, headers) {
-    if (currentUserRole !== 'admin') {
-        tampilkanPesan('warning', 'Hanya admin yang dapat mengimpor data.');
-        return;
-    }
-    
-    // Konversi dataExcel ke format yang sesuai dengan dataMaster
-    const importedData = [];
-    for (let row of dataExcel) {
-        let obj = {};
-        for (let [k, v] of Object.entries(row)) {
-            const normKey = normalizeKey(k);
-            let value = v;
-            if (normKey === 'TGL_LAHIR' || normKey === 'TMT_MIL' || normKey === 'TMT_PKT') {
-                value = formatTanggal(v);
+// IMPORT EXCEL YANG MEMPERTAHANKAN SEMUA KOLOM (termasuk kosong dan duplikat)
+document.getElementById('excelFileInput')?.addEventListener('change', (e) => { 
+    if(!e.target.files[0]) return; 
+    const f = e.target.files[0]; 
+    const r = new FileReader(); 
+    r.onload = (ev) => { 
+        const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' }); 
+        const sh = wb.Sheets[wb.SheetNames[0]]; 
+        const rawData = XLSX.utils.sheet_to_json(sh, { header: 1, defval: "" });
+        if (!rawData || rawData.length < 2) { alert('File kosong'); return; }
+        const rawHeaders = rawData[0];
+        const validHeaders = [];
+        const headerCount = {};
+        for (let i = 0; i < rawHeaders.length; i++) {
+            let raw = rawHeaders[i];
+            let headerStr = (raw && typeof raw === 'string') ? raw.trim() : '';
+            if (headerStr === '') headerStr = `Kolom_${i+1}`;
+            let norm = normalizeKey(headerStr);
+            if (headerCount[norm] !== undefined) {
+                headerCount[norm]++;
+                norm = `${norm}_${headerCount[norm]}`;
+            } else {
+                headerCount[norm] = 1;
             }
-            obj[normKey] = value;
+            validHeaders.push(norm);
         }
-        importedData.push(obj);
-    }
-    
-    // Gabungkan dengan data yang sudah ada (gunakan NRP sebagai kunci)
+        const rows = [];
+        for (let i = 1; i < rawData.length; i++) {
+            const row = rawData[i];
+            const rowObj = {};
+            for (let j = 0; j < validHeaders.length; j++) {
+                const key = validHeaders[j];
+                let value = (j < row.length && row[j] !== undefined && row[j] !== null) ? row[j] : '';
+                if (key === 'TGL_LAHIR' || key === 'TMT_MIL' || key === 'TMT_PKT') value = formatTanggal(value);
+                rowObj[key] = value;
+            }
+            rows.push(rowObj);
+        }
+        dataExcelPending = rows;
+        semuaKolom = validHeaders;
+        document.getElementById('fileStatusText').innerHTML = `✅ ${f.name} (${dataExcelPending.length} baris, ${semuaKolom.length} kolom) - Siap import`;
+    }; 
+    r.readAsArrayBuffer(f); 
+});
+
+function importExcelToMaster(dataExcel, headers) {
+    if (currentUserRole !== 'admin') { tampilkanPesan('warning','Hanya admin'); return; }
+    semuaKolom = headers;
     const map = new Map(dataMaster.map(p => [safeString(p.NRP), p]));
-    let baru = 0, update = 0;
-    for (let row of importedData) {
+    let baru=0, update=0;
+    for (let row of dataExcel) {
         const nrp = safeString(row.NRP);
         if (!nrp) continue;
         if (map.has(nrp)) {
@@ -815,107 +741,69 @@ function importExcelToMaster(dataExcel, headers) {
             baru++;
         }
     }
-    
-    // Update semuaKolom dari header Excel jika tersedia
-    if (headers && headers.length > 0) {
-        semuaKolom = headers.map(h => normalizeKey(h));
-    } else if (dataMaster.length > 0) {
-        semuaKolom = Object.keys(dataMaster[0]);
-    } else {
-        semuaKolom = [];
-    }
-    
+    // Gabungkan semua kunci dari semua data
+    const allKeys = new Set();
+    for (let p of dataMaster) Object.keys(p).forEach(k => allKeys.add(k));
+    semuaKolom = Array.from(allKeys);
     dataFilter = [...dataMaster];
     refreshAllUI();
-    tampilkanPesan('success', `Import selesai! ${baru} baru, ${update} update. Total: ${dataMaster.length} personel.`);
-    
-    // Tawarkan sinkronisasi ke SheetDB
-    if (confirm('Apakah Anda ingin menyimpan perubahan ini ke database online (SheetDB)?')) {
-        syncDataToSheetDB();
-    }
+    tampilkanPesan('success', `Import selesai! ${baru} baru, ${update} update. Total kolom: ${semuaKolom.length}`);
+    if (confirm('Simpan ke database online (SheetDB)?')) syncDataToSheetDB();
 }
 
-// Export dataMaster ke file Excel
 function exportToExcel() {
-    if (dataMaster.length === 0) {
-        tampilkanPesan('warning', 'Tidak ada data untuk diekspor.');
-        return;
-    }
+    if (!dataMaster.length) { tampilkanPesan('warning','Tidak ada data'); return; }
     const wsData = dataMaster.map(row => {
-        let exportRow = {};
-        for (let k of semuaKolom) {
-            exportRow[formatLabel(k)] = row[k] !== undefined ? row[k] : '';
-        }
-        return exportRow;
+        let exp = {};
+        for (let k of semuaKolom) exp[formatLabel(k)] = row[k] !== undefined ? row[k] : '';
+        return exp;
     });
     const ws = XLSX.utils.json_to_sheet(wsData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Personel');
     XLSX.writeFile(wb, `Personel_${new Date().toISOString().slice(0,10)}.xlsx`);
-    tampilkanPesan('success', 'Export Excel berhasil!');
+    tampilkanPesan('success','Export Excel berhasil (semua kolom)');
 }
 
-// =============== PDF Generator ===============
+// PDF
 function downloadPersonelPDF(person) {
-    if(!person) return;
     const { jsPDF } = window.jspdf;
     const dataRows = [];
     for(let k of semuaKolom) {
-        let val = person[k] !== undefined && person[k] !== null ? safeString(person[k]) : '';
-        if(val === '') val = '-';
+        let val = person[k] !== undefined && person[k] !== null ? safeString(person[k]) : '-';
         dataRows.push([formatLabel(k), val]);
     }
     const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    doc.setFont('helvetica', 'bold'); doc.setFillColor(10,22,40); doc.rect(0,0,pageWidth,32,'F');
-    doc.setTextColor(255,255,255); doc.setFontSize(13); doc.text('PUSAT PENERBANGAN TNI AL', pageWidth/2,12,{align:'center'});
-    doc.setFontSize(10); doc.text('DATA SINGKAT PERSONEL', pageWidth/2,21,{align:'center'});
-    doc.setFontSize(8); doc.text(`NRP: ${safeString(person.NRP) || '-'}`, pageWidth/2,28,{align:'center'});
-    doc.autoTable({ 
-        startY:36, 
-        head:[['INFORMASI','DETAIL']], 
-        body:dataRows, 
-        theme:'grid', 
-        styles:{fontSize:9,cellPadding:3}, 
-        headStyles:{fillColor:[10,22,40],textColor:[255,255,255],fontStyle:'bold'}, 
-        columnStyles:{0:{cellWidth:45,fontStyle:'bold'}}, 
-        margin:{left:15,right:15} 
-    });
-    const safeName = safeString(person.NAMA).substring(0,30).replace(/[^a-z0-9]/gi,'_') || 'personel';
-    doc.save(`Personel_${safeString(person.NRP) || 'unknown'}_${safeName}.pdf`);
-    tampilkanPesan('success', `PDF ${safeString(person.NAMA)} berhasil diunduh dengan urutan kolom sesuai Excel`);
+    const pw = doc.internal.pageSize.getWidth();
+    doc.setFillColor(10,22,40); doc.rect(0,0,pw,32,'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(13); doc.text('PUSAT PENERBANGAN TNI AL', pw/2,12,{align:'center'});
+    doc.setFontSize(10); doc.text('DATA SINGKAT PERSONEL', pw/2,21,{align:'center'});
+    doc.setFontSize(8); doc.text(`NRP: ${safeString(person.NRP) || '-'}`, pw/2,28,{align:'center'});
+    doc.autoTable({ startY:36, head:[['INFORMASI','DETAIL']], body:dataRows, theme:'grid', styles:{fontSize:9}, headStyles:{fillColor:[10,22,40]} });
+    doc.save(`Personel_${safeString(person.NRP)}.pdf`);
+    tampilkanPesan('success','PDF detail selesai');
 }
 
 function downloadAllSearchResultPDF() {
-    if(!dataFilter.length) { tampilkanPesan('info','Tidak ada data untuk dicetak'); return; }
+    if(!dataFilter.length) { tampilkanPesan('info','Tidak ada data'); return; }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation:'landscape' });
     doc.setFillColor(10,22,40); doc.rect(0,0,doc.internal.pageSize.getWidth(),35,'F');
     doc.setTextColor(255,255,255); doc.setFontSize(13); doc.text('PUSAT PENERBANGAN TNI AL', doc.internal.pageSize.getWidth()/2,15,{align:'center'});
-    doc.setFontSize(9); doc.text('DAFTAR PERSONEL (HASIL PENCARIAN)', doc.internal.pageSize.getWidth()/2,25,{align:'center'});
-    doc.setTextColor(0,0,0);
-    const rows = dataFilter.slice(0,500).map((p,i)=>[i+1, safeString(p.NRP)||'-', safeString(p.NAMA)||'-', safeString(p.PANGKAT)||'-', safeString(p.JABATAN).substring(0,45)||'-', safeString(p.SATKER)||'-']);
-    doc.autoTable({ startY:42, head:[['No','NRP','Nama','Pangkat','Jabatan','Satker']], body:rows, styles:{fontSize:7}, headStyles:{fillColor:[10,22,40],textColor:[255,255,255]} });
+    doc.setFontSize(9); doc.text('DAFTAR PERSONEL', doc.internal.pageSize.getWidth()/2,25,{align:'center'});
+    const rows = dataFilter.slice(0,500).map((p,i)=>[i+1, safeString(p.NRP), safeString(p.NAMA), safeString(p.PANGKAT), safeString(p.JABATAN).substring(0,45), safeString(p.SATKER)]);
+    doc.autoTable({ startY:42, head:[['No','NRP','Nama','Pangkat','Jabatan','Satker']], body:rows, styles:{fontSize:7}, headStyles:{fillColor:[10,22,40]} });
     doc.save(`Daftar_Personel_${new Date().toISOString().slice(0,10)}.pdf`);
-    tampilkanPesan('success', `PDF ${dataFilter.length} data diunduh`);
+    tampilkanPesan('success','PDF daftar selesai');
 }
 
-// =============== Fungsi Refresh UI ===============
-function refreshAllUI() {
-    populateFilter();
-    updateStatistik();
-    cariData();
-}
+function refreshAllUI() { populateFilter(); updateStatistik(); cariData(); }
 
-// =============== Login & Initial Load ===============
+// LOGIN & EVENT
 document.getElementById('loginBtn').addEventListener('click', async () => {
     const user = document.getElementById('username').value.trim();
     const pass = document.getElementById('password').value.trim();
-    
-    // Coba ambil data dari SheetDB terlebih dahulu
     await fetchDataFromSheetDB();
-    
-    // Validasi login
     if(user === 'admin' && pass === '20496/P') {
         currentUserRole = 'admin';
         document.getElementById('loginPage').style.display = 'none';
@@ -924,17 +812,16 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
         attachSearchEvents();
     } else {
-        // Cari user berdasarkan NRP (password)
         const found = dataMaster.find(p => safeString(p.NRP) === pass);
         if(found) {
             currentUserRole = 'user';
             document.getElementById('loginPage').style.display = 'none';
             document.getElementById('appPage').style.display = 'block';
-            document.getElementById('userRoleBadge').innerHTML = `👤 USER : ${safeString(found.NAMA).substring(0,20) || pass}`;
+            document.getElementById('userRoleBadge').innerHTML = `👤 USER : ${safeString(found.NAMA).substring(0,20)}`;
             document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
             attachSearchEvents();
         } else {
-            document.getElementById('loginErrorMsg').innerText = 'Login gagal! Periksa username/password'; 
+            document.getElementById('loginErrorMsg').innerText = 'Login gagal!'; 
             document.getElementById('loginErrorMsg').style.display='block';
             setTimeout(()=>document.getElementById('loginErrorMsg').style.display='none',2000);
         }
@@ -944,98 +831,75 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
 document.getElementById('logoutBtn').addEventListener('click', () => { 
     document.getElementById('appPage').style.display='none'; 
     document.getElementById('loginPage').style.display='flex'; 
-    document.getElementById('username').value=''; 
-    document.getElementById('password').value=''; 
     currentUserRole = null;
 });
 
-// =============== Event Listeners untuk Tombol ===============
 function attachSearchEvents() {
-    const cariBtn = document.getElementById('cariButton');
-    const resetBtn = document.getElementById('resetFilterButton');
-    const searchKeyword = document.getElementById('searchKeyword');
-    const filterPangkat = document.getElementById('filterPangkatSelect');
-    const filterSatker = document.getElementById('filterSatkerSelect');
-    
-    if(cariBtn) cariBtn.onclick = (e) => { e.preventDefault(); cariData(); };
-    if(resetBtn) resetBtn.onclick = (e) => {
+    document.getElementById('cariButton').onclick = (e) => { e.preventDefault(); cariData(); };
+    document.getElementById('resetFilterButton').onclick = (e) => {
         e.preventDefault();
-        if(searchKeyword) searchKeyword.value = '';
-        if(filterPangkat) filterPangkat.value = '';
-        if(filterSatker) filterSatker.value = '';
+        document.getElementById('searchKeyword').value = '';
+        document.getElementById('filterPangkatSelect').value = '';
+        document.getElementById('filterSatkerSelect').value = '';
         cariData();
     };
-    if(searchKeyword) searchKeyword.onkeyup = () => cariData();
-    if(filterPangkat) filterPangkat.onchange = () => cariData();
-    if(filterSatker) filterSatker.onchange = () => cariData();
+    document.getElementById('searchKeyword').onkeyup = () => cariData();
+    document.getElementById('filterPangkatSelect').onchange = () => cariData();
+    document.getElementById('filterSatkerSelect').onchange = () => cariData();
 }
 
-// Delegasi event untuk tombol aksi di tabel
+// Tombol tabel (detail, edit, hapus)
 document.getElementById('tabelBody').addEventListener('click', async (e) => {
-    const btn = e.target; 
-    const nrp = btn.getAttribute('data-nrp'); 
+    const btn = e.target;
+    const nrp = btn.getAttribute('data-nrp');
     const person = dataMaster.find(p => safeString(p.NRP) === nrp);
-    if(btn.classList.contains('detail-btn') && person) tampilkanDetail(person);
-    
-    if(btn.classList.contains('edit-btn') && person && currentUserRole==='admin') { 
-        editingPerson = person; 
-        const form = document.getElementById('editForm'); 
-        let html = ''; 
-        for(let k of semuaKolom) { 
-            let val = person[k] || ''; 
-            html += `<div class="form-row"><label>${formatLabel(k)}</label><input type="text" name="${k}" value="${escapeHtml(safeString(val))}"></div>`; 
-        } 
-        form.innerHTML = html; 
-        document.getElementById('editModal').classList.add('active'); 
+    if (btn.classList.contains('detail-btn') && person) tampilkanDetail(person);
+    if (btn.classList.contains('edit-btn') && person && currentUserRole==='admin') {
+        editingPerson = person;
+        let html = '';
+        for(let k of semuaKolom) {
+            let val = person[k] || '';
+            html += `<div class="form-row"><label>${formatLabel(k)}</label><input type="text" name="${k}" value="${escapeHtml(safeString(val))}"></div>`;
+        }
+        document.getElementById('editForm').innerHTML = html;
+        document.getElementById('editModal').classList.add('active');
     }
-    
-    if(btn.classList.contains('delete-btn') && person && currentUserRole==='admin') { 
-        if(confirm(`Hapus ${safeString(person.NAMA)}?`)) { 
-            // Hapus dari SheetDB
-            const success = await deleteRowFromSheetDB(nrp);
-            if (success) {
-                // Hapus dari dataMaster
-                const idx = dataMaster.findIndex(p => safeString(p.NRP) === nrp); 
-                if(idx !== -1) dataMaster.splice(idx,1); 
+    if (btn.classList.contains('delete-btn') && person && currentUserRole==='admin') {
+        if(confirm(`Hapus ${safeString(person.NAMA)}?`)) {
+            const ok = await deleteRowFromSheetDB(nrp);
+            if(ok) {
+                const idx = dataMaster.findIndex(p => safeString(p.NRP) === nrp);
+                if(idx !== -1) dataMaster.splice(idx,1);
                 dataFilter = [...dataMaster];
-                refreshAllUI(); 
-                tampilkanPesan('success','Data dihapus dari database online');
-            } else {
-                tampilkanPesan('warning','Gagal menghapus dari database online. Coba lagi.');
-            }
-        } 
+                refreshAllUI();
+                tampilkanPesan('success','Terhapus dari database');
+            } else tampilkanPesan('warning','Gagal hapus');
+        }
     }
 });
 
-// Edit: Simpan perubahan
-document.getElementById('saveEditBtn').addEventListener('click', async () => { 
-    if(!editingPerson) return; 
-    const inputs = document.querySelectorAll('#editForm input'); 
-    const updatedData = {};
+document.getElementById('saveEditBtn').addEventListener('click', async () => {
+    if(!editingPerson) return;
+    const inputs = document.querySelectorAll('#editForm input');
+    const updated = {};
     for(let inp of inputs) {
-        const fieldName = inp.getAttribute('name');
-        updatedData[formatLabel(fieldName)] = inp.value;
-        editingPerson[fieldName] = inp.value;
+        const field = inp.getAttribute('name');
+        updated[formatLabel(field)] = inp.value;
+        editingPerson[field] = inp.value;
     }
-    
-    // Update di SheetDB
     const nrp = safeString(editingPerson.NRP);
-    const success = await updateRowInSheetDB(nrp, updatedData);
-    if (success) {
-        // Update dataMaster
-        const index = dataMaster.findIndex(p => safeString(p.NRP) === nrp);
-        if (index !== -1) dataMaster[index] = editingPerson;
+    const success = await updateRowInSheetDB(nrp, updated);
+    if(success) {
+        const idx = dataMaster.findIndex(p => safeString(p.NRP) === nrp);
+        if(idx !== -1) dataMaster[idx] = editingPerson;
         dataFilter = [...dataMaster];
-        refreshAllUI(); 
-        tampilkanPesan('success','Data tersimpan ke database online'); 
-    } else {
-        tampilkanPesan('warning','Gagal menyimpan perubahan ke database online.');
-    }
-    document.getElementById('editModal').classList.remove('active'); 
-    editingPerson = null; 
+        refreshAllUI();
+        tampilkanPesan('success','Data tersimpan');
+    } else tampilkanPesan('warning','Gagal simpan');
+    document.getElementById('editModal').classList.remove('active');
+    editingPerson = null;
 });
 
-// Tombol-tombol lain
 document.getElementById('closeEditModalBtn').addEventListener('click',()=>document.getElementById('editModal').classList.remove('active'));
 document.getElementById('cancelEditBtn').addEventListener('click',()=>document.getElementById('editModal').classList.remove('active'));
 document.getElementById('pdfDetailBtn').addEventListener('click',()=>{ if(currentDetailPerson) downloadPersonelPDF(currentDetailPerson); });
@@ -1043,71 +907,21 @@ document.getElementById('tutupModalBtn').addEventListener('click',()=>document.g
 document.getElementById('closeDetailBtn').addEventListener('click',()=>document.getElementById('detailModal').classList.remove('active'));
 document.getElementById('pdfDownloadBtn').addEventListener('click', downloadAllSearchResultPDF);
 
-// Admin: Import/Export
 document.getElementById('pilihFileBtn')?.addEventListener('click',()=>document.getElementById('excelFileInput').click());
-document.getElementById('excelFileInput')?.addEventListener('change',(e)=>{ 
-    if(!e.target.files[0]) return; 
-    const f=e.target.files[0]; 
-    const r=new FileReader(); 
-    r.onload=(ev)=>{ 
-        const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'}); 
-        const sh=wb.Sheets[wb.SheetNames[0]]; 
-        const rawData = XLSX.utils.sheet_to_json(sh, { header: 1 });
-        if(rawData && rawData.length > 0) {
-            const headers = rawData[0].map(h => normalizeKey(h));
-            const rows = [];
-            for(let i=1; i<rawData.length; i++) {
-                let rowObj = {};
-                for(let j=0; j<headers.length; j++) {
-                    if(rawData[i][j] !== undefined && rawData[i][j] !== null && rawData[i][j] !== '') {
-                        rowObj[headers[j]] = rawData[i][j];
-                    }
-                }
-                rows.push(rowObj);
-            }
-            dataExcelPending = rows;
-            document.getElementById('fileStatusText').innerHTML=`✅ ${f.name} (${dataExcelPending.length} baris, ${headers.length} kolom) - Siap import`;
-        } else {
-            dataExcelPending = XLSX.utils.sheet_to_json(sh);
-            document.getElementById('fileStatusText').innerHTML=`✅ ${f.name} (${dataExcelPending.length} baris) siap import`;
-        }
-    }; 
-    r.readAsArrayBuffer(f); 
+document.getElementById('importExcelBtn')?.addEventListener('click',()=>{
+    if(currentUserRole!=='admin') { alert('Hanya admin'); return; }
+    if(!dataExcelPending) { alert('Pilih file Excel dulu'); return; }
+    importExcelToMaster(dataExcelPending, semuaKolom);
 });
-
-document.getElementById('importExcelBtn')?.addEventListener('click',()=>{ 
-    if(currentUserRole!=='admin') { alert('Hanya admin yang bisa import'); return; }
-    if(!dataExcelPending) { alert('Pilih file Excel terlebih dahulu'); return; } 
-    // Ambil headers dari dataExcelPending
-    let headers = [];
-    if(dataExcelPending.length > 0) {
-        headers = Object.keys(dataExcelPending[0]).map(h => normalizeKey(h));
+document.getElementById('exportExcelBtn')?.addEventListener('click',()=>{ if(currentUserRole==='admin') exportToExcel(); });
+document.getElementById('resetAllBtn')?.addEventListener('click',async ()=>{
+    if(confirm('RESET semua data?') && currentUserRole==='admin'){
+        await fetch(`${SHEETDB_API_URL}/all`, { method: 'DELETE' });
+        dataMaster = []; dataFilter = []; semuaKolom = [];
+        refreshAllUI();
+        tampilkanPesan('success','Semua data direset');
     }
-    importExcelToMaster(dataExcelPending, headers);
 });
-
-document.getElementById('exportExcelBtn')?.addEventListener('click',()=>{ 
-    if(currentUserRole!=='admin') return; 
-    exportToExcel();
-});
-
-document.getElementById('resetAllBtn')?.addEventListener('click',async ()=>{ 
-    if(confirm('⚠️ RESET AKAN MENGHAPUS SEMUA DATA! Lanjutkan?') && currentUserRole==='admin'){ 
-        // Hapus semua data di SheetDB
-        try {
-            await fetch(`${SHEETDB_API_URL}/all`, { method: 'DELETE' });
-            dataMaster = [];
-            dataFilter = [];
-            semuaKolom = [];
-            refreshAllUI();
-            tampilkanPesan('success','Semua data telah dihapus dari database online.');
-        } catch (error) {
-            console.error('Gagal reset data:', error);
-            tampilkanPesan('warning','Gagal menghapus data dari database online.');
-        }
-    } 
-});
-
 attachSearchEvents();
 </script>
 </body>
