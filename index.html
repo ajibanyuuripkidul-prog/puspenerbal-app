@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>PUSPENERBAL - Manajemen Personel TNI AL</title>
+    <!-- SheetJS: Untuk export ke Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <!-- jsPDF: Untuk generate PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a1628; }
+        
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0a1628, #0f2040);
+            padding: 20px;
+        }
+        .login-box {
+            background: rgba(15,32,64,0.95);
+            border: 1px solid #c8a84b;
+            border-radius: 12px;
+            padding: 40px 30px;
+            width: 100%;
+            max-width: 360px;
+            backdrop-filter: blur(2px);
+        }
+        .login-box h2 { color: #c8a84b; text-align: center; margin-bottom: 10px; }
+        .login-box p.sub { color: #aaa; font-size: 11px; text-align: center; margin-bottom: 25px; }
+        .login-box input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid #c8a84b;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            outline: none;
+        }
+        .login-box input::placeholder { color: #aaa; }
+        .login-box button {
+            width: 100%;
+            padding: 12px;
+            background: #c8a84b;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.2s;
+        }
+        .login-box button:hover { background: #b3923a; }
+        .login-error { color: #e74c3c; text-align: center; margin-top: 10px; display: none; font-size: 12px; }
+        
+        .app-container { display: none; min-height: 100vh; background: #f0f4f8; }
+        .header {
+            background: #0a1628;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #c8a84b;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .header h2 { color: white; font-size: 16px; }
+        .user-badge { background: #1e2a44; padding: 4px 12px; border-radius: 30px; color: #c8a84b; font-size: 12px; font-weight: bold; }
+        .logout-btn {
+            background: none;
+            border: 1px solid #c8a84b;
+            color: #c8a84b;
+            padding: 6px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .logout-btn:hover { background: #c8a84b20; }
+        .container { padding: 15px; max-width: 1400px; margin: 0 auto; }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        @media (min-width: 768px) {
+            .stats { grid-template-columns: repeat(4, 1fr); }
+        }
+        .stat-card {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 3px solid #c8a84b;
+        }
+        .stat-number { font-size: 22px; font-weight: bold; color: #0a1628; }
+        .stat-label { font-size: 10px; color: #666; margin-top: 3px; }
+        
+        .panel {
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+        .panel-title {
+            background: #0a1628;
+            color: white;
+            padding: 10px 15px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .panel-body { padding: 15px; }
+        
+        .search-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .search-field { flex: 1; min-width: 120px; }
+        .search-field label {
+            display: block;
+            font-size: 10px;
+            color: #666;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+        .search-field input, .search-field select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+        button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .btn-cari { background: #0a1628; color: white; }
+        .btn-reset { background: #7f8c8d; color: white; }
+        .btn-import { background: #27ae60; color: white; }
+        .btn-export { background: #1a3a6e; color: white; }
+        .btn-pdf { background: #c8a84b; color: #0a1628; }
+        .btn-pdf-detail { background: #e67e22; color: white; margin-left: 10px; }
+        .btn-edit { background: #2980b9; color: white; margin-left: 4px; }
+        .btn-hapus { background: #c0392b; color: white; margin-left: 4px; }
+        
+        .admin-only { display: none; }
+        
+        .table-wrapper { overflow-x: auto; max-height: 500px; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th {
+            background: #f8faff;
+            padding: 10px 8px;
+            text-align: left;
+            border-bottom: 2px solid #ddd;
+            position: sticky;
+            top: 0;
+            white-space: nowrap;
+        }
+        td { padding: 8px; border-bottom: 1px solid #eee; }
+        tr:hover td { background: #f8faff; }
+        .detail-btn, .edit-btn, .delete-btn {
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: bold;
+            margin: 0 2px;
+        }
+        .detail-btn { background: #1a3a6e; color: white; }
+        .edit-btn { background: #f39c12; color: #2c3e50; }
+        .delete-btn { background: #e74c3c; color: white; }
+        
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #f8faff;
+            border-top: 1px solid #ddd;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 11px;
+        }
+        .page-btn {
+            padding: 4px 10px;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            margin: 0 2px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+        .page-btn.active { background: #0a1628; color: white; border-color: #0a1628; }
+        .no-data { text-align: center; padding: 40px; color: #999; display: none; }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 95%;
+            max-width: 1000px;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            background: #0a1628;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            position: sticky;
+            top: 0;
+        }
+        .modal-body { padding: 20px; }
+        .modal-footer { padding: 15px 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; justify-content: flex-end; }
+        .close-modal {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+        @media (min-width: 600px) {
+            .info-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        .info-item {
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 8px;
+        }
+        .info-label {
+            font-size: 10px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .info-value {
+            font-size: 13px;
+            font-weight: 500;
+            color: #333;
+            word-break: break-word;
+        }
+        .form-edit {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+        .form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .form-row label {
+            font-weight: bold;
+            font-size: 12px;
+            color: #2c3e50;
+        }
+        .form-row input {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+        .alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            left: 20px;
+            padding: 10px 15px;
+            border-radius: 8px;
+            color: white;
+            z-index: 1100;
+            animation: slideIn 0.3s ease;
+            text-align: center;
+            font-size: 13px;
+        }
+        .alert-success { background: #27ae60; }
+        .alert-info { background: #3498db; }
+        .alert-warning { background: #f39c12; }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .badge {
+            display: inline-block;
+            background: #27ae60;
+            color: white;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 8px;
+        }
+        .search-test {
+            margin-top: 10px;
+            padding: 8px;
+            background: #e8f4fd;
+            border-radius: 5px;
+            font-size: 11px;
+            color: #0a1628;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 3px;
+            background: #ddd;
+            border-radius: 2px;
+            margin-top: 10px;
+            display: none;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #27ae60;
+            border-radius: 2px;
+            width: 0%;
+        }
+        .file-info { margin-left: 10px; font-size: 11px; color: #666; }
+        input[type="file"] { display: none; }
+    </style>
+</head>
+<body>
+
+<div id="loginPage" class="login-container">
+    <div class="login-box">
+        <h2>⚓ PUSPENERBAL</h2>
+        <p class="sub">Sistem Informasi Personel</p>
+        <input type="text" id="username" placeholder="Username" autocomplete="off">
+        <input type="password" id="password" placeholder="Password" autocomplete="off">
+        <button id="loginBtn">MASUK</button>
+        <div id="loginErrorMsg" class="login-error"></div>
+    </div>
+</div>
+
+<div id="appPage" class="app-container">
+    <div class="header">
+        <h2>⚓ PUSAT PENERBANGAN TNI AL - DIREKTORAT PERSONEL</h2>
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <span id="userRoleBadge" class="user-badge"></span>
+            <button id="logoutBtn" class="logout-btn">LOGOUT</button>
+        </div>
+    </div>
+    <div class="container">
+        <div class="stats">
+            <div class="stat-card"><div class="stat-number" id="statTotal">0</div><div class="stat-label">Total Personel</div></div>
+            <div class="stat-card"><div class="stat-number" id="statPerwira">0</div><div class="stat-label">Perwira</div></div>
+            <div class="stat-card"><div class="stat-number" id="statBintara">0</div><div class="stat-label">Bintara/Tamtama</div></div>
+            <div class="stat-card"><div class="stat-number" id="statPNS">0</div><div class="stat-label">PNS</div></div>
+        </div>
+
+        <!-- Panel Admin: Management Data -->
+        <div id="adminPanel" class="panel admin-only">
+            <div class="panel-title">📂 MANAJEMEN DATA (ADMIN ONLY)</div>
+            <div class="panel-body">
+                <input type="file" id="excelFileInput" accept=".xlsx,.xls">
+                <button id="pilihFileBtn" class="btn-import">📁 Pilih File Excel</button>
+                <button id="importExcelBtn" class="btn-import">⬆ IMPORT DATA</button>
+                <button id="exportExcelBtn" class="btn-export">📎 EXPORT EXCEL</button>
+                <button id="resetAllBtn" class="btn-reset">↺ RESET DATA</button>
+                <span id="fileStatusText" class="file-info">Belum ada file dipilih</span>
+                <div id="progressBar" class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+            </div>
+        </div>
+
+        <!-- Panel Pencarian -->
+        <div class="panel">
+            <div class="panel-title">🔍 PENCARIAN DATA PERSONEL</div>
+            <div class="panel-body">
+                <div class="search-row">
+                    <div class="search-field"><label>NRP / NAMA</label><input type="text" id="searchKeyword" placeholder="Cari NRP atau Nama..." autocomplete="off"></div>
+                    <div class="search-field"><label>PANGKAT</label><select id="filterPangkatSelect"><option value="">Semua Pangkat</option></select></div>
+                    <div class="search-field"><label>SATKER</label><select id="filterSatkerSelect"><option value="">Semua Satker</option></select></div>
+                    <button id="cariButton" class="btn-cari">🔍 CARI</button>
+                    <button id="resetFilterButton" class="btn-reset">↺ RESET</button>
+                </div>
+                <div id="searchTestInfo" class="search-test"></div>
+            </div>
+        </div>
+
+        <!-- Tabel Data Personel -->
+        <div class="panel">
+            <div class="panel-title" style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                <span>📋 DAFTAR PERSONEL <span id="totalHasil"></span> <span id="columnCountBadge" class="badge"></span></span>
+                <button id="pdfDownloadBtn" class="btn-pdf">📄 UNDUH SEMUA PDF (HASIL PENCARIAN)</button>
+            </div>
+            <div class="table-wrapper">
+                <table id="personelTable"><thead><tr><th>No</th><th>NRP</th><th>Nama Lengkap</th><th>Pangkat</th><th>Jabatan</th><th>Satuan Kerja</th><th>Aksi</th></tr></thead><tbody id="tabelBody"></tbody></table>
+            </div>
+            <div id="pesanKosong" class="no-data">📋 Tidak ada data ditemukan</div>
+            <div class="pagination" id="paginationSection"><div id="infoHalaman"></div><div id="tombolHalaman"></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Detail -->
+<div id="detailModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header"><div><h3 id="modalNamaPersonel"></h3><small id="modalPangkatPersonel" style="color:#c8a84b;"></small><small id="modalNRPPersonel" style="color:#aaa; display:block; font-size:11px;"></small></div><div><button id="pdfDetailBtn" class="btn-pdf-detail">📄 UNDUH PDF</button><button id="tutupModalBtn" class="close-modal">✕</button></div></div>
+        <div class="modal-body" id="modalBodyDetail"></div>
+        <div class="modal-footer"><button id="closeDetailBtn" style="background:#ddd; padding:8px 20px;">Tutup</button></div>
+    </div>
+</div>
+
+<!-- Modal Edit -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header"><h3>✏️ Edit Data Personel</h3><button id="closeEditModalBtn" class="close-modal">✕</button></div>
+        <div class="modal-body"><form id="editForm" class="form-edit"></form></div>
+        <div class="modal-footer"><button id="saveEditBtn" style="background:#27ae60; color:white;">💾 SIMPAN</button><button id="cancelEditBtn" style="background:#7f8c8d; color:white;">BATAL</button></div>
+    </div>
+</div>
+
+<script>
+// =============== KONFIGURASI API ===============
+const SHEETDB_API_URL = 'https://sheetdb.io/api/v1/ipcljdxg63hhe';
+
+// =============== Helper Functions ===============
+function normalizeKey(key) {
+    let k = String(key).toUpperCase().trim();
+    k = k.replace(/\s+/g, ' ').replace(/[_]+/g, ' ');
+    const mapping = {
+        'TEMPAT LAHIR': 'TEMPAT_LAHIR',
+        'TGL LAHIR': 'TGL_LAHIR',
+        'TANGGAL LAHIR': 'TGL_LAHIR',
+        'TMT MILITER': 'TMT_MIL',
+        'TMT MIL': 'TMT_MIL',
+        'TMT PANGKAT': 'TMT_PKT',
+        'KELAS JABATAN': 'KELAS_JABATAN',
+        'KELAS JAB': 'KELAS_JABATAN',
+        'TMT JABATAN': 'TMT_JABATAN'
+    };
+    return mapping[k] || k.replace(/ /g, '_');
+}
+
+function formatLabel(key) {
+    return String(key).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+function escapeHtml(str) { 
+    if(str === undefined || str === null) return ''; 
+    return String(str).replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); 
+}
+
+function excelDateToJSDate(serial) { 
+    if(typeof serial !== 'number') return serial; 
+    const d = new Date((serial-25569)*86400000); 
+    return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`; 
+}
+
+function formatTanggal(v) { 
+    if(!v) return ''; 
+    if(typeof v === 'number') return excelDateToJSDate(v); 
+    return String(v).trim().replace(/-/g, '/'); 
+}
+
+function safeString(value) {
+    if(value === undefined || value === null) return '';
+    return String(value);
+}
+
+// =============== Global State ===============
+let dataMaster = [];
+let dataFilter = [];
+let semuaKolom = [];
+let halamanSaatIni = 1;
+let barisPerHalaman = 20;
+let currentUserRole = null;
+let dataExcelPending = null;
+let currentDetailPerson = null;
+let editingPerson = null;
+
+// =============== Helper: Update Tabel & UI ===============
+function getKategori(pangkat) {
+    let p = safeString(pangkat);
+    if(!p) return "Lainnya";
+    if(p.includes('Laksdya')||p.includes('Laksda')||p.includes('Laksma')) return "Perwira Tinggi";
+    if(p.includes('Kolonel')||p.includes('Letkol')||p.includes('Mayor')||p.includes('Kapten')||p.includes('Lettu')||p.includes('Letda')) return "Perwira";
+    if(p.includes('Peltu')||p.includes('Serka')||p.includes('Serma')||p.includes('Sertu')) return "Bintara/Tamtama";
+    if(p.includes('IV/')||p.includes('III/')) return "PNS";
+    return "Lainnya";
+}
+
+function updateStatistik() {
+    const total = dataMaster.length;
+    const perwira = dataMaster.filter(p => getKategori(p.PANGKAT) === "Perwira" || getKategori(p.PANGKAT) === "Perwira Tinggi").length;
+    const bintara = dataMaster.filter(p => getKategori(p.PANGKAT) === "Bintara/Tamtama").length;
+    const pns = dataMaster.filter(p => getKategori(p.PANGKAT) === "PNS").length;
+    document.getElementById('statTotal').innerText = total;
+    document.getElementById('statPerwira').innerText = perwira;
+    document.getElementById('statBintara').innerText = bintara;
+    document.getElementById('statPNS').innerText = pns;
+    document.getElementById('columnCountBadge').innerHTML = `${semuaKolom.length} Kolom`;
+}
+
+function populateFilter() {
+    const pangkatSet = new Set(), satkerSet = new Set();
+    for(let p of dataMaster) { 
+        if(p.PANGKAT && safeString(p.PANGKAT).trim()) pangkatSet.add(safeString(p.PANGKAT)); 
+        if(p.SATKER && safeString(p.SATKER).trim()) satkerSet.add(safeString(p.SATKER)); 
+    }
+    const ps = document.getElementById('filterPangkatSelect');
+    if(ps) {
+        ps.innerHTML = '<option value="">Semua Pangkat</option>';
+        Array.from(pangkatSet).sort().forEach(p => ps.innerHTML += `<option value="${p.replace(/"/g,'&quot;')}">${p}</option>`);
+    }
+    const ss = document.getElementById('filterSatkerSelect');
+    if(ss) {
+        ss.innerHTML = '<option value="">Semua Satker</option>';
+        Array.from(satkerSet).sort().forEach(s => ss.innerHTML += `<option value="${s.replace(/"/g,'&quot;')}">${s}</option>`);
+    }
+}
+
+function cariData() {
+    const keywordInput = document.getElementById('searchKeyword');
+    const pangkatSelect = document.getElementById('filterPangkatSelect');
+    const satkerSelect = document.getElementById('filterSatkerSelect');
+    
+    const kw = keywordInput ? safeString(keywordInput.value).trim().toLowerCase() : '';
+    const pkt = pangkatSelect ? pangkatSelect.value : '';
+    const sker = satkerSelect ? satkerSelect.value : '';
+    
+    if(dataMaster.length === 0) {
+        dataFilter = [];
+        const totalHasil = document.getElementById('totalHasil');
+        if(totalHasil) totalHasil.innerHTML = '(0)';
+        const testInfo = document.getElementById('searchTestInfo');
+        if(testInfo) testInfo.innerHTML = '⚠️ Belum ada data. Silakan import file Excel terlebih dahulu.';
+        renderTabel();
+        return;
+    }
+    
+    dataFilter = dataMaster.filter(p => {
+        const nrpValue = safeString(p.NRP).toLowerCase();
+        const namaValue = safeString(p.NAMA).toLowerCase();
+        const pangkatValue = safeString(p.PANGKAT);
+        const satkerValue = safeString(p.SATKER);
+        
+        if(kw && !(nrpValue.includes(kw) || namaValue.includes(kw))) return false;
+        if(pkt && pangkatValue !== pkt) return false;
+        if(sker && satkerValue !== sker) return false;
+        return true;
+    });
+    
+    halamanSaatIni = 1;
+    renderTabel();
+    
+    const totalHasil = document.getElementById('totalHasil');
+    if(totalHasil) totalHasil.innerHTML = `(${dataFilter.length})`;
+    
+    const testInfo = document.getElementById('searchTestInfo');
+    if(testInfo) {
+        if(kw) testInfo.innerHTML = `🔍 Mencari "${kw}" - Ditemukan ${dataFilter.length} data`;
+        else testInfo.innerHTML = `📊 Total data: ${dataMaster.length} personel, ${semuaKolom.length} kolom`;
+    }
+}
+
+function renderTabel() {
+    const tbody = document.getElementById('tabelBody');
+    if(!tbody) return;
+    
+    const start = (halamanSaatIni-1)*barisPerHalaman;
+    const dataHalaman = dataFilter.slice(start, start+barisPerHalaman);
+    
+    if(!dataHalaman.length) { 
+        tbody.innerHTML='<tr><td colspan="7" style="text-align:center; padding:30px;">📭 Tidak ada data</td></tr>';
+        const pesanKosong = document.getElementById('pesanKosong');
+        if(pesanKosong) pesanKosong.style.display='none'; 
+        const pagSection = document.getElementById('paginationSection');
+        if(pagSection) pagSection.style.display='none'; 
+        return; 
+    }
+    
+    const pesanKosong = document.getElementById('pesanKosong');
+    if(pesanKosong) pesanKosong.style.display='none'; 
+    const pagSection = document.getElementById('paginationSection');
+    if(pagSection) pagSection.style.display='flex';
+    
+    let html = '';
+    for(let i=0;i<dataHalaman.length;i++) {
+        const p = dataHalaman[i];
+        const nrpSafe = safeString(p.NRP).replace(/"/g,'&quot;');
+        let aksi = `<button class="detail-btn" data-nrp="${nrpSafe}">Detail</button>`;
+        if(currentUserRole === 'admin') aksi += ` <button class="edit-btn" data-nrp="${nrpSafe}">✏️ Edit</button> <button class="delete-btn" data-nrp="${nrpSafe}">🗑️ Hapus</button>`;
+        html += `<tr>
+            <td>${start+i+1}</td>
+            <td>${safeString(p.NRP) || '-'}</td>
+            <td>${escapeHtml(p.NAMA) || '-'}</td>
+            <td>${safeString(p.PANGKAT) || '-'}</td>
+            <td>${escapeHtml(safeString(p.JABATAN).substring(0,40)) || '-'}</td>
+            <td>${safeString(p.SATKER) || '-'}</td>
+            <td>${aksi}</td>
+        </tr>`;
+    }
+    tbody.innerHTML = html;
+    
+    const totalHalaman = Math.ceil(dataFilter.length/barisPerHalaman) || 1;
+    const infoHalaman = document.getElementById('infoHalaman');
+    if(infoHalaman) infoHalaman.innerHTML = `Halaman ${halamanSaatIni} dari ${totalHalaman}`;
+    
+    const tombolDiv = document.getElementById('tombolHalaman'); 
+    if(!tombolDiv) return;
+    tombolDiv.innerHTML = '';
+    if(totalHalaman<=1) return;
+    
+    const buat = (t,cb,d=false)=>{ let b=document.createElement('button'); b.innerText=t; b.className='page-btn'; if(d) b.disabled=true; b.onclick=cb; tombolDiv.appendChild(b); };
+    buat('«',()=>{if(halamanSaatIni>1){halamanSaatIni--;renderTabel();}},halamanSaatIni===1);
+    buat('‹',()=>{if(halamanSaatIni>1){halamanSaatIni--;renderTabel();}},halamanSaatIni===1);
+    let sp = Math.max(1, halamanSaatIni-2), ep = Math.min(totalHalaman, sp+4); sp = Math.max(1, ep-4);
+    for(let i=sp;i<=ep;i++) { let b=document.createElement('button'); b.innerText=i; b.className='page-btn'; if(i===halamanSaatIni) b.classList.add('active'); b.onclick=()=>{halamanSaatIni=i;renderTabel();}; tombolDiv.appendChild(b); }
+    buat('›',()=>{if(halamanSaatIni<totalHalaman){halamanSaatIni++;renderTabel();}},halamanSaatIni===totalHalaman);
+    buat('»',()=>{if(halamanSaatIni<totalHalaman){halamanSaatIni=totalHalaman;renderTabel();}},halamanSaatIni===totalHalaman);
+}
+
+function tampilkanDetail(person) {
+    currentDetailPerson = person;
+    document.getElementById('modalNamaPersonel').innerText = safeString(person.NAMA) || '-';
+    document.getElementById('modalPangkatPersonel').innerText = safeString(person.PANGKAT) || '-';
+    document.getElementById('modalNRPPersonel').innerText = `NRP: ${safeString(person.NRP) || '-'}`;
+    let html = '<div class="info-grid">';
+    for(let k of semuaKolom) {
+        let val = person[k] !== undefined && person[k] !== null ? safeString(person[k]) : '-';
+        if(val === '') val = '-';
+        html += `<div class="info-item"><div class="info-label">${formatLabel(k)}</div><div class="info-value">${escapeHtml(val)}</div></div>`;
+    }
+    html += '</div>';
+    document.getElementById('modalBodyDetail').innerHTML = html;
+    document.getElementById('detailModal').classList.add('active');
+}
+
+function tampilkanPesan(type, msg) { 
+    let d=document.createElement('div'); 
+    d.className=`alert alert-${type}`; 
+    d.innerText=msg; 
+    document.body.appendChild(d); 
+    setTimeout(()=>d.remove(),3000); 
+}
+
+// =============== Fungsi Interaksi dengan SheetDB ===============
+// Ambil semua data dari Google Sheets via SheetDB
+async function fetchDataFromSheetDB() {
+    try {
+        const response = await fetch(SHEETDB_API_URL);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        console.log('Data dari SheetDB:', data);
+        
+        if (data && data.length > 0) {
+            // Ambil header dari kunci objek pertama
+            const headers = Object.keys(data[0]);
+            semuaKolom = headers.map(h => normalizeKey(h));
+            
+            // Konversi data, format tanggal jika diperlukan
+            dataMaster = data.map(row => {
+                let obj = {};
+                for (let [k, v] of Object.entries(row)) {
+                    const normKey = normalizeKey(k);
+                    let value = v;
+                    if (normKey === 'TGL_LAHIR' || normKey === 'TMT_MIL' || normKey === 'TMT_PKT') {
+                        value = formatTanggal(v);
+                    }
+                    obj[normKey] = value;
+                }
+                return obj;
+            });
+        } else {
+            dataMaster = [];
+            semuaKolom = [];
+        }
+        dataFilter = [...dataMaster];
+        refreshAllUI();
+        return true;
+    } catch (error) {
+        console.error('Gagal mengambil data dari SheetDB:', error);
+        tampilkanPesan('info', 'Tidak dapat terhubung ke database online. Pastikan SheetDB API aktif.');
+        return false;
+    }
+}
+
+// Update data ke SheetDB (untuk operasi write)
+async function syncDataToSheetDB() {
+    if (currentUserRole !== 'admin') {
+        tampilkanPesan('warning', 'Hanya admin yang dapat menyimpan perubahan ke database.');
+        return false;
+    }
+    
+    // Konversi dataMaster ke format yang sesuai untuk SheetDB (dengan header asli)
+    const dataToSync = dataMaster.map(row => {
+        let newRow = {};
+        for (let k of semuaKolom) {
+            newRow[formatLabel(k)] = row[k] !== undefined ? row[k] : '';
+        }
+        return newRow;
+    });
+    
+    try {
+        // Hapus semua data yang ada (kecuali header)
+        await fetch(`${SHEETDB_API_URL}/all`, { method: 'DELETE' });
+        
+        // Kirim data baru
+        const response = await fetch(SHEETDB_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dataToSync)
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const result = await response.json();
+        console.log('Sinkronisasi berhasil:', result);
+        tampilkanPesan('success', 'Database berhasil disinkronkan!');
+        return true;
+    } catch (error) {
+        console.error('Gagal sinkronisasi ke SheetDB:', error);
+        tampilkanPesan('warning', 'Gagal menyimpan perubahan ke database online. Periksa koneksi.');
+        return false;
+    }
+}
+
+// Hapus baris berdasarkan NRP
+async function deleteRowFromSheetDB(nrp) {
+    if (currentUserRole !== 'admin') return false;
+    try {
+        const response = await fetch(`${SHEETDB_API_URL}/NRP/${encodeURIComponent(nrp)}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const result = await response.json();
+        console.log('Hapus baris:', result);
+        return true;
+    } catch (error) {
+        console.error('Gagal menghapus baris:', error);
+        return false;
+    }
+}
+
+// Update baris berdasarkan NRP
+async function updateRowInSheetDB(nrp, updatedData) {
+    if (currentUserRole !== 'admin') return false;
+    try {
+        const response = await fetch(`${SHEETDB_API_URL}/NRP/${encodeURIComponent(nrp)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedData)
+        });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const result = await response.json();
+        console.log('Update baris:', result);
+        return true;
+    } catch (error) {
+        console.error('Gagal update baris:', error);
+        return false;
+    }
+}
+
+// =============== Fungsi untuk Admin (Import/Export) ===============
+// Import data dari file Excel (tidak langsung sync ke SheetDB, hanya update dataMaster)
+function importExcelToMaster(dataExcel, headers) {
+    if (currentUserRole !== 'admin') {
+        tampilkanPesan('warning', 'Hanya admin yang dapat mengimpor data.');
+        return;
+    }
+    
+    // Konversi dataExcel ke format yang sesuai dengan dataMaster
+    const importedData = [];
+    for (let row of dataExcel) {
+        let obj = {};
+        for (let [k, v] of Object.entries(row)) {
+            const normKey = normalizeKey(k);
+            let value = v;
+            if (normKey === 'TGL_LAHIR' || normKey === 'TMT_MIL' || normKey === 'TMT_PKT') {
+                value = formatTanggal(v);
+            }
+            obj[normKey] = value;
+        }
+        importedData.push(obj);
+    }
+    
+    // Gabungkan dengan data yang sudah ada (gunakan NRP sebagai kunci)
+    const map = new Map(dataMaster.map(p => [safeString(p.NRP), p]));
+    let baru = 0, update = 0;
+    for (let row of importedData) {
+        const nrp = safeString(row.NRP);
+        if (!nrp) continue;
+        if (map.has(nrp)) {
+            Object.assign(map.get(nrp), row);
+            update++;
+        } else {
+            dataMaster.push(row);
+            map.set(nrp, row);
+            baru++;
+        }
+    }
+    
+    // Update semuaKolom dari header Excel jika tersedia
+    if (headers && headers.length > 0) {
+        semuaKolom = headers.map(h => normalizeKey(h));
+    } else if (dataMaster.length > 0) {
+        semuaKolom = Object.keys(dataMaster[0]);
+    } else {
+        semuaKolom = [];
+    }
+    
+    dataFilter = [...dataMaster];
+    refreshAllUI();
+    tampilkanPesan('success', `Import selesai! ${baru} baru, ${update} update. Total: ${dataMaster.length} personel.`);
+    
+    // Tawarkan sinkronisasi ke SheetDB
+    if (confirm('Apakah Anda ingin menyimpan perubahan ini ke database online (SheetDB)?')) {
+        syncDataToSheetDB();
+    }
+}
+
+// Export dataMaster ke file Excel
+function exportToExcel() {
+    if (dataMaster.length === 0) {
+        tampilkanPesan('warning', 'Tidak ada data untuk diekspor.');
+        return;
+    }
+    const wsData = dataMaster.map(row => {
+        let exportRow = {};
+        for (let k of semuaKolom) {
+            exportRow[formatLabel(k)] = row[k] !== undefined ? row[k] : '';
+        }
+        return exportRow;
+    });
+    const ws = XLSX.utils.json_to_sheet(wsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Personel');
+    XLSX.writeFile(wb, `Personel_${new Date().toISOString().slice(0,10)}.xlsx`);
+    tampilkanPesan('success', 'Export Excel berhasil!');
+}
+
+// =============== PDF Generator ===============
+function downloadPersonelPDF(person) {
+    if(!person) return;
+    const { jsPDF } = window.jspdf;
+    const dataRows = [];
+    for(let k of semuaKolom) {
+        let val = person[k] !== undefined && person[k] !== null ? safeString(person[k]) : '';
+        if(val === '') val = '-';
+        dataRows.push([formatLabel(k), val]);
+    }
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    doc.setFont('helvetica', 'bold'); doc.setFillColor(10,22,40); doc.rect(0,0,pageWidth,32,'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(13); doc.text('PUSAT PENERBANGAN TNI AL', pageWidth/2,12,{align:'center'});
+    doc.setFontSize(10); doc.text('DATA SINGKAT PERSONEL', pageWidth/2,21,{align:'center'});
+    doc.setFontSize(8); doc.text(`NRP: ${safeString(person.NRP) || '-'}`, pageWidth/2,28,{align:'center'});
+    doc.autoTable({ 
+        startY:36, 
+        head:[['INFORMASI','DETAIL']], 
+        body:dataRows, 
+        theme:'grid', 
+        styles:{fontSize:9,cellPadding:3}, 
+        headStyles:{fillColor:[10,22,40],textColor:[255,255,255],fontStyle:'bold'}, 
+        columnStyles:{0:{cellWidth:45,fontStyle:'bold'}}, 
+        margin:{left:15,right:15} 
+    });
+    const safeName = safeString(person.NAMA).substring(0,30).replace(/[^a-z0-9]/gi,'_') || 'personel';
+    doc.save(`Personel_${safeString(person.NRP) || 'unknown'}_${safeName}.pdf`);
+    tampilkanPesan('success', `PDF ${safeString(person.NAMA)} berhasil diunduh dengan urutan kolom sesuai Excel`);
+}
+
+function downloadAllSearchResultPDF() {
+    if(!dataFilter.length) { tampilkanPesan('info','Tidak ada data untuk dicetak'); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'landscape' });
+    doc.setFillColor(10,22,40); doc.rect(0,0,doc.internal.pageSize.getWidth(),35,'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(13); doc.text('PUSAT PENERBANGAN TNI AL', doc.internal.pageSize.getWidth()/2,15,{align:'center'});
+    doc.setFontSize(9); doc.text('DAFTAR PERSONEL (HASIL PENCARIAN)', doc.internal.pageSize.getWidth()/2,25,{align:'center'});
+    doc.setTextColor(0,0,0);
+    const rows = dataFilter.slice(0,500).map((p,i)=>[i+1, safeString(p.NRP)||'-', safeString(p.NAMA)||'-', safeString(p.PANGKAT)||'-', safeString(p.JABATAN).substring(0,45)||'-', safeString(p.SATKER)||'-']);
+    doc.autoTable({ startY:42, head:[['No','NRP','Nama','Pangkat','Jabatan','Satker']], body:rows, styles:{fontSize:7}, headStyles:{fillColor:[10,22,40],textColor:[255,255,255]} });
+    doc.save(`Daftar_Personel_${new Date().toISOString().slice(0,10)}.pdf`);
+    tampilkanPesan('success', `PDF ${dataFilter.length} data diunduh`);
+}
+
+// =============== Fungsi Refresh UI ===============
+function refreshAllUI() {
+    populateFilter();
+    updateStatistik();
+    cariData();
+}
+
+// =============== Login & Initial Load ===============
+document.getElementById('loginBtn').addEventListener('click', async () => {
+    const user = document.getElementById('username').value.trim();
+    const pass = document.getElementById('password').value.trim();
+    
+    // Coba ambil data dari SheetDB terlebih dahulu
+    await fetchDataFromSheetDB();
+    
+    // Validasi login
+    if(user === 'admin' && pass === '20496/P') {
+        currentUserRole = 'admin';
+        document.getElementById('loginPage').style.display = 'none';
+        document.getElementById('appPage').style.display = 'block';
+        document.getElementById('userRoleBadge').innerHTML = '👑 ADMINISTRATOR';
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+        attachSearchEvents();
+    } else {
+        // Cari user berdasarkan NRP (password)
+        const found = dataMaster.find(p => safeString(p.NRP) === pass);
+        if(found) {
+            currentUserRole = 'user';
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('appPage').style.display = 'block';
+            document.getElementById('userRoleBadge').innerHTML = `👤 USER : ${safeString(found.NAMA).substring(0,20) || pass}`;
+            document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+            attachSearchEvents();
+        } else {
+            document.getElementById('loginErrorMsg').innerText = 'Login gagal! Periksa username/password'; 
+            document.getElementById('loginErrorMsg').style.display='block';
+            setTimeout(()=>document.getElementById('loginErrorMsg').style.display='none',2000);
+        }
+    }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => { 
+    document.getElementById('appPage').style.display='none'; 
+    document.getElementById('loginPage').style.display='flex'; 
+    document.getElementById('username').value=''; 
+    document.getElementById('password').value=''; 
+    currentUserRole = null;
+});
+
+// =============== Event Listeners untuk Tombol ===============
+function attachSearchEvents() {
+    const cariBtn = document.getElementById('cariButton');
+    const resetBtn = document.getElementById('resetFilterButton');
+    const searchKeyword = document.getElementById('searchKeyword');
+    const filterPangkat = document.getElementById('filterPangkatSelect');
+    const filterSatker = document.getElementById('filterSatkerSelect');
+    
+    if(cariBtn) cariBtn.onclick = (e) => { e.preventDefault(); cariData(); };
+    if(resetBtn) resetBtn.onclick = (e) => {
+        e.preventDefault();
+        if(searchKeyword) searchKeyword.value = '';
+        if(filterPangkat) filterPangkat.value = '';
+        if(filterSatker) filterSatker.value = '';
+        cariData();
+    };
+    if(searchKeyword) searchKeyword.onkeyup = () => cariData();
+    if(filterPangkat) filterPangkat.onchange = () => cariData();
+    if(filterSatker) filterSatker.onchange = () => cariData();
+}
+
+// Delegasi event untuk tombol aksi di tabel
+document.getElementById('tabelBody').addEventListener('click', async (e) => {
+    const btn = e.target; 
+    const nrp = btn.getAttribute('data-nrp'); 
+    const person = dataMaster.find(p => safeString(p.NRP) === nrp);
+    if(btn.classList.contains('detail-btn') && person) tampilkanDetail(person);
+    
+    if(btn.classList.contains('edit-btn') && person && currentUserRole==='admin') { 
+        editingPerson = person; 
+        const form = document.getElementById('editForm'); 
+        let html = ''; 
+        for(let k of semuaKolom) { 
+            let val = person[k] || ''; 
+            html += `<div class="form-row"><label>${formatLabel(k)}</label><input type="text" name="${k}" value="${escapeHtml(safeString(val))}"></div>`; 
+        } 
+        form.innerHTML = html; 
+        document.getElementById('editModal').classList.add('active'); 
+    }
+    
+    if(btn.classList.contains('delete-btn') && person && currentUserRole==='admin') { 
+        if(confirm(`Hapus ${safeString(person.NAMA)}?`)) { 
+            // Hapus dari SheetDB
+            const success = await deleteRowFromSheetDB(nrp);
+            if (success) {
+                // Hapus dari dataMaster
+                const idx = dataMaster.findIndex(p => safeString(p.NRP) === nrp); 
+                if(idx !== -1) dataMaster.splice(idx,1); 
+                dataFilter = [...dataMaster];
+                refreshAllUI(); 
+                tampilkanPesan('success','Data dihapus dari database online');
+            } else {
+                tampilkanPesan('warning','Gagal menghapus dari database online. Coba lagi.');
+            }
+        } 
+    }
+});
+
+// Edit: Simpan perubahan
+document.getElementById('saveEditBtn').addEventListener('click', async () => { 
+    if(!editingPerson) return; 
+    const inputs = document.querySelectorAll('#editForm input'); 
+    const updatedData = {};
+    for(let inp of inputs) {
+        const fieldName = inp.getAttribute('name');
+        updatedData[formatLabel(fieldName)] = inp.value;
+        editingPerson[fieldName] = inp.value;
+    }
+    
+    // Update di SheetDB
+    const nrp = safeString(editingPerson.NRP);
+    const success = await updateRowInSheetDB(nrp, updatedData);
+    if (success) {
+        // Update dataMaster
+        const index = dataMaster.findIndex(p => safeString(p.NRP) === nrp);
+        if (index !== -1) dataMaster[index] = editingPerson;
+        dataFilter = [...dataMaster];
+        refreshAllUI(); 
+        tampilkanPesan('success','Data tersimpan ke database online'); 
+    } else {
+        tampilkanPesan('warning','Gagal menyimpan perubahan ke database online.');
+    }
+    document.getElementById('editModal').classList.remove('active'); 
+    editingPerson = null; 
+});
+
+// Tombol-tombol lain
+document.getElementById('closeEditModalBtn').addEventListener('click',()=>document.getElementById('editModal').classList.remove('active'));
+document.getElementById('cancelEditBtn').addEventListener('click',()=>document.getElementById('editModal').classList.remove('active'));
+document.getElementById('pdfDetailBtn').addEventListener('click',()=>{ if(currentDetailPerson) downloadPersonelPDF(currentDetailPerson); });
+document.getElementById('tutupModalBtn').addEventListener('click',()=>document.getElementById('detailModal').classList.remove('active'));
+document.getElementById('closeDetailBtn').addEventListener('click',()=>document.getElementById('detailModal').classList.remove('active'));
+document.getElementById('pdfDownloadBtn').addEventListener('click', downloadAllSearchResultPDF);
+
+// Admin: Import/Export
+document.getElementById('pilihFileBtn')?.addEventListener('click',()=>document.getElementById('excelFileInput').click());
+document.getElementById('excelFileInput')?.addEventListener('change',(e)=>{ 
+    if(!e.target.files[0]) return; 
+    const f=e.target.files[0]; 
+    const r=new FileReader(); 
+    r.onload=(ev)=>{ 
+        const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'}); 
+        const sh=wb.Sheets[wb.SheetNames[0]]; 
+        const rawData = XLSX.utils.sheet_to_json(sh, { header: 1 });
+        if(rawData && rawData.length > 0) {
+            const headers = rawData[0].map(h => normalizeKey(h));
+            const rows = [];
+            for(let i=1; i<rawData.length; i++) {
+                let rowObj = {};
+                for(let j=0; j<headers.length; j++) {
+                    if(rawData[i][j] !== undefined && rawData[i][j] !== null && rawData[i][j] !== '') {
+                        rowObj[headers[j]] = rawData[i][j];
+                    }
+                }
+                rows.push(rowObj);
+            }
+            dataExcelPending = rows;
+            document.getElementById('fileStatusText').innerHTML=`✅ ${f.name} (${dataExcelPending.length} baris, ${headers.length} kolom) - Siap import`;
+        } else {
+            dataExcelPending = XLSX.utils.sheet_to_json(sh);
+            document.getElementById('fileStatusText').innerHTML=`✅ ${f.name} (${dataExcelPending.length} baris) siap import`;
+        }
+    }; 
+    r.readAsArrayBuffer(f); 
+});
+
+document.getElementById('importExcelBtn')?.addEventListener('click',()=>{ 
+    if(currentUserRole!=='admin') { alert('Hanya admin yang bisa import'); return; }
+    if(!dataExcelPending) { alert('Pilih file Excel terlebih dahulu'); return; } 
+    // Ambil headers dari dataExcelPending
+    let headers = [];
+    if(dataExcelPending.length > 0) {
+        headers = Object.keys(dataExcelPending[0]).map(h => normalizeKey(h));
+    }
+    importExcelToMaster(dataExcelPending, headers);
+});
+
+document.getElementById('exportExcelBtn')?.addEventListener('click',()=>{ 
+    if(currentUserRole!=='admin') return; 
+    exportToExcel();
+});
+
+document.getElementById('resetAllBtn')?.addEventListener('click',async ()=>{ 
+    if(confirm('⚠️ RESET AKAN MENGHAPUS SEMUA DATA! Lanjutkan?') && currentUserRole==='admin'){ 
+        // Hapus semua data di SheetDB
+        try {
+            await fetch(`${SHEETDB_API_URL}/all`, { method: 'DELETE' });
+            dataMaster = [];
+            dataFilter = [];
+            semuaKolom = [];
+            refreshAllUI();
+            tampilkanPesan('success','Semua data telah dihapus dari database online.');
+        } catch (error) {
+            console.error('Gagal reset data:', error);
+            tampilkanPesan('warning','Gagal menghapus data dari database online.');
+        }
+    } 
+});
+
+attachSearchEvents();
+</script>
+</body>
+</html>
