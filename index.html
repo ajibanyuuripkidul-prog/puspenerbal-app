@@ -333,7 +333,8 @@
             width: 0%;
         }
         .file-info { margin-left: 10px; font-size: 11px; color: #666; }
-        input[type="file"] { display: none; }
+        /* Input file sekarang terlihat */
+        input[type="file"] { display: inline-block; margin: 5px 0; }
     </style>
 </head>
 <body>
@@ -368,8 +369,8 @@
         <div id="adminPanel" class="panel admin-only">
             <div class="panel-title">📂 MANAJEMEN DATA (ADMIN ONLY)</div>
             <div class="panel-body">
-                <input type="file" id="excelFileInput" accept=".xlsx,.xls">
-                <button id="pilihFileBtn" class="btn-import">📁 Pilih File Excel</button>
+                <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display: inline-block; margin: 5px 0;">
+                <button id="pilihFileBtn" class="btn-import" style="display: none;">📁 Pilih File Excel</button>
                 <button id="importExcelBtn" class="btn-import">⬆ IMPORT DATA</button>
                 <button id="exportExcelBtn" class="btn-export">📎 EXPORT EXCEL</button>
                 <button id="resetAllBtn" class="btn-reset">↺ RESET DATA</button>
@@ -719,24 +720,16 @@ async function updateRowInGoogleSheet(nrp, updatedData) {
     }
 }
 
-// ==================== IMPORT/EXPORT EXCEL ====================
+// ==================== IMPORT/EXCEL EVENT ====================
 document.addEventListener('DOMContentLoaded', function() {
-    const pilihFileBtn = document.getElementById('pilihFileBtn');
+    // Input file change event
     const excelFileInput = document.getElementById('excelFileInput');
-    if (pilihFileBtn && excelFileInput) {
-        pilihFileBtn.addEventListener('click', function() {
-            excelFileInput.click();
-        });
-    } else {
-        console.error('Tombol atau input file tidak ditemukan');
-    }
-
     if (excelFileInput) {
-        excelFileInput.addEventListener('change', (e) => { 
+        excelFileInput.addEventListener('change', function(e) {
             if(!e.target.files[0]) return; 
             const f = e.target.files[0]; 
             const r = new FileReader(); 
-            r.onload = (ev) => { 
+            r.onload = function(ev) { 
                 const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' }); 
                 const sh = wb.Sheets[wb.SheetNames[0]]; 
                 const rawData = XLSX.utils.sheet_to_json(sh, { header: 1, defval: "" });
@@ -960,6 +953,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// Event untuk tombol-tombol lainnya
 document.getElementById('saveEditBtn')?.addEventListener('click', async () => {
     if(!editingPerson) return;
     const inputs = document.querySelectorAll('#editForm input');
